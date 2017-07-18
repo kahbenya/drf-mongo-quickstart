@@ -96,52 +96,53 @@ Create an initial user named `admin` with a password of `password123`. We'll aut
 Visit localhost:8000 and the welcome page should come up. Visit localhost:8000/admin and log in to confirm authentication works.
 > At the time of writing the admin page does not allow editing.
 
-Now we have a database and initial user created and ready to go, open up the app's directory and we'll get coding...
+### Django REST Framework Mongo
+
+		pip install djangorestframework
+		pip install django-rest-framework-mongoengine
+
+Add to `tutorial/settings.py`
+		INSTALLED_APPS = (
+			...
+			'rest_framework',
+			'rest_framework_mongoengine',
+			...
+		)
+
+Now we can write some code.
 
 ## Serializers
 
-First up we're going to define some serializers. Let's create a new module named `tutorial/quickstart/serializers.py` that we'll use for our data representations.
+First up we're going to define some serializers. Let's create a new module named `quickstart/serializers.py` that we'll use for our data representations.
 
-    from django.contrib.auth.models import User, Group
-    from rest_framework import serializers
-
-
-    class UserSerializer(serializers.HyperlinkedModelSerializer):
-        class Meta:
-            model = User
-            fields = ('url', 'username', 'email', 'groups')
+		from django_mongoengine.mongo_auth.models import User
+		from rest_framework_mongoengine import serializers
 
 
-    class GroupSerializer(serializers.HyperlinkedModelSerializer):
-        class Meta:
-            model = Group
-            fields = ('url', 'name')
+		class UserSerializer(serializers.DocumentSerializer):
+				class Meta:
+						model = User
+						fields = ('username', 'email', )
 
-Notice that we're using hyperlinked relations in this case, with `HyperlinkedModelSerializer`.  You can also use primary key and various other relationships, but hyperlinking is good RESTful design.
+Notice that we use the models from MongoEngine and import our REST framework functionality from `rest_framework_mongoengine` as opposed to `rest_framework`.
 
 ## Views
 
-Right, we'd better write some views then.  Open `tutorial/quickstart/views.py` and get typing.
+Right, we'd better write some views then.  Open `quickstart/views.py` and get typing.
 
-    from django.contrib.auth.models import User, Group
-    from rest_framework import viewsets
-    from tutorial.quickstart.serializers import UserSerializer, GroupSerializer
-
-
-    class UserViewSet(viewsets.ModelViewSet):
-        """
-        API endpoint that allows users to be viewed or edited.
-        """
-        queryset = User.objects.all().order_by('-date_joined')
-        serializer_class = UserSerializer
+		from django_mongoengine.mongo_auth.models import User
+		from rest_framework_mongoengine import viewsets
+		from quickstart.serializers import UserSerializer
 
 
-    class GroupViewSet(viewsets.ModelViewSet):
-        """
-        API endpoint that allows groups to be viewed or edited.
-        """
-        queryset = Group.objects.all()
-        serializer_class = GroupSerializer
+		class UserViewSet(viewsets.ModelViewSet):
+				"""
+				API endpoint that allows users to be viewed or edited.
+				"""
+				serializer_class = UserSerializer
+
+				def get_queryset(self):
+						return User.objects.all()
 
 Rather than write multiple views we're grouping together all the common behavior into classes called `ViewSets`.
 
@@ -151,22 +152,22 @@ We can easily break these down into individual views if we need to, but using vi
 
 Okay, now let's wire up the API URLs.  On to `tutorial/urls.py`...
 
-    from django.conf.urls import url, include
-    from rest_framework import routers
-    from tutorial.quickstart import views
+		from django.conf.urls import url, include
+		from django_mongoengine import mongo_admin
+		from rest_framework_mongoengine import routers
+		from quickstart import views
 
-    router = routers.DefaultRouter()
-    router.register(r'users', views.UserViewSet)
-    router.register(r'groups', views.GroupViewSet)
+		router = routers.DefaultRouter()
+		router.register(r'users', views.UserViewSet,base_name="users")
 
-    # Wire up our API using automatic URL routing.
-    # Additionally, we include login URLs for the browsable API.
-    urlpatterns = [
-        url(r'^', include(router.urls)),
-        url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework'))
-    ]
+		urlpatterns = [
+				url(r'^admin/', include(mongo_admin.site.urls)),
+				url(r'^', include(router.urls)),
+		]
 
 Because we're using viewsets instead of views, we can automatically generate the URL conf for our API, by simply registering the viewsets with a router class.
+
+> Note: the base_name parameter is needed for the router since the viewset does not have a [`queryset` attribute](http://www.django-rest-framework.org/api-guide/routers/).
 
 Again, if we need more control over the API URLs we can simply drop down to using regular class-based views, and writing the URL conf explicitly.
 
@@ -176,17 +177,12 @@ Finally, we're including default login and logout views for use with the browsab
 
 We'd also like to set a few global settings.  We'd like to turn on pagination, and we want our API to only be accessible to admin users.  The settings module will be in `tutorial/settings.py`
 
-    INSTALLED_APPS = (
-        ...
-        'rest_framework',
-    )
-
-    REST_FRAMEWORK = {
-        'DEFAULT_PERMISSION_CLASSES': [
-            'rest_framework.permissions.IsAdminUser',
-        ],
-        'PAGE_SIZE': 10
-    }
+		REST_FRAMEWORK = {
+				'DEFAULT_PERMISSION_CLASSES': [
+						'rest_framework_mongoengine.permissions.IsAdminUser',
+				],
+				'PAGE_SIZE': 10
+		}
 
 Okay, we're done.
 
@@ -200,66 +196,64 @@ We're now ready to test the API we've built.  Let's fire up the server from the 
 
 We can now access our API, both from the command-line, using tools like `curl`...
 
-    bash: curl -H 'Accept: application/json; indent=4' -u admin:password123 http://127.0.0.1:8000/users/
-    {
-        "count": 2,
-        "next": null,
-        "previous": null,
-        "results": [
-            {
-                "email": "admin@example.com",
-                "groups": [],
-                "url": "http://127.0.0.1:8000/users/1/",
-                "username": "admin"
-            },
-            {
-                "email": "tom@example.com",
-                "groups": [                ],
-                "url": "http://127.0.0.1:8000/users/2/",
-                "username": "tom"
-            }
-        ]
-    }
+		$ curl -H 'Accept: application/json; indent=4'  -u admin:password123 http://127.0.0.1:8000
+		{
+				"users": "http://127.0.0.1:8000/users/"
+		}
+
+		$ curl -H 'Accept: application/json; indent=4' -u admin:password123 http://127.0.0.1:8000/users/
+		{
+				"count": 1,
+				"next": null,
+				"previous": null,
+				"results": [
+						{
+								"username": "admin",
+								"email": "admin@example.com"
+						}
+				]
+		}
 
 Or using the [httpie][httpie], command line tool...
 
-    bash: http -a admin:password123 http://127.0.0.1:8000/users/
+    pip install httpie
 
-    HTTP/1.1 200 OK
-    ...
-    {
-        "count": 2,
-        "next": null,
-        "previous": null,
-        "results": [
-            {
-                "email": "admin@example.com",
-                "groups": [],
-                "url": "http://localhost:8000/users/1/",
-                "username": "paul"
-            },
-            {
-                "email": "tom@example.com",
-                "groups": [                ],
-                "url": "http://127.0.0.1:8000/users/2/",
-                "username": "tom"
-            }
-        ]
-    }
+    $  http -a admin:password123 http://127.0.0.1:8000/users/
+		HTTP/1.0 200 OK
+		Allow: GET, POST, HEAD, OPTIONS
+		Content-Length: 100
+		Content-Type: application/json
+		Date: Tue, 18 Jul 2017 19:48:04 GMT
+		Server: WSGIServer/0.2 CPython/3.5.2+
+		Vary: Accept, Cookie
+		X-Frame-Options: SAMEORIGIN
 
+		{
+				"count": 1,
+				"next": null,
+				"previous": null,
+				"results": [
+						{
+								"email": "admin@example.com",
+								"username": "admin"
+						}
+				]
+		}
 
-Or directly through the browser, by going to the URL `http://127.0.0.1:8000/users/`...
-
-![Quick start image][image]
-
+In your browser navigate to `localhost:8000`
 If you're working through the browser, make sure to login using the control in the top right corner.
 
-Great, that was easy!
 
-If you want to get a more in depth understanding of how REST framework fits together head on over to [the tutorial][tutorial], or start browsing the [API guide][guide].
+![API Root image](./screenshots/api_root.png)
 
-[readme-example-api]: ../#example
-[image]: ../img/quickstart.png
-[tutorial]: 1-serialization.md
-[guide]: ../#api-guide
+Click on the `users` URL and you should see
+
+![User List image](./screenshots/user_list.png)
+
+
+## Issues
+Using the form on the User List page to create a new user fails with a
+`ValidationError`. The complaint is that the `password` is required but
+missing. This is a point for investigation.
+
 [httpie]: https://github.com/jakubroztocil/httpie#installation

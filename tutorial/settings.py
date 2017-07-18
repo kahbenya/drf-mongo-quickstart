@@ -41,7 +41,17 @@ INSTALLED_APPS = [
     'django_mongoengine',
     'django_mongoengine.mongo_auth',
     'django_mongoengine.mongo_admin',
+
+    'rest_framework',
+	'rest_framework_mongoengine',
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAdminUser',
+    ],
+    'PAGE_SIZE': 10
+}
 
 AUTH_USER_MODEL = 'mongo_auth.MongoUser'
 

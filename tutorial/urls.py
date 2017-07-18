@@ -15,7 +15,16 @@ Including another URLconf
 """
 from django.conf.urls import url, include
 from django_mongoengine import mongo_admin
+from rest_framework_mongoengine import routers
+from quickstart import views
+
+router = routers.DefaultRouter()
+router.register(r'users', views.UserViewSet,base_name="users")
 
 urlpatterns = [
     url(r'^admin/', include(mongo_admin.site.urls)),
+    url(r'^', include(router.urls)),
+    url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework'))
 ]
+
+
