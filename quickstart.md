@@ -1,8 +1,15 @@
 # Quickstart
 
-We're going to create a simple API to allow admin users to view and edit the users and groups in the system.
+We're going to create a simple API to allow admin users to view users in the
+system.
+
+As a side effect we introduce Django and MongoEngine interaction and
+configuration.
 
 ## Project setup
+
+### Django and MongoEngine
+The first step will be to get Django and a MongoDB instance working together.
 
 Create a new Django project named `tutorial`, then start a new app called `quickstart`.
 
@@ -16,23 +23,80 @@ Create a new Django project named `tutorial`, then start a new app called `quick
 
     # Install Django and Django REST framework into the virtualenv
     pip install django
-    pip install djangorestframework
+    pip install mongoengine
+    pip install git+https://github.com/MongoEngine/django-mongoengine.git
 
     # Set up a new project with a single application
     django-admin.py startproject tutorial .  # Note the trailing '.' character
-    cd tutorial
     django-admin.py startapp quickstart
     cd ..
 
-Now sync your database for the first time:
+Now configure the project to use MongoEngine. In `settings.py` add
 
-    python manage.py migrate
+		INSTALLED_APPS = [
+				...,
 
-We'll also create an initial user named `admin` with a password of `password123`. We'll authenticate as that user later in our example.
+				'django_mongoengine',
+				'django_mongoengine.mongo_auth',
+				'django_mongoengine.mongo_admin',
+		]
 
-    python manage.py createsuperuser
+		AUTH_USER_MODEL = 'mongo_auth.MongoUser'
 
-Once you've set up a database and initial user created and ready to go, open up the app's directory and we'll get coding...
+		AUTHENTICATION_BACKENDS = (
+			'django_mongoengine.mongo_auth.backends.MongoEngineBackend',
+		)
+
+Edit the standard database configuration and add the MongoDB config
+		DATABASES = {
+				'default': { 'ENGINE': 'django.db.backends.dummy'}
+		}
+
+		MONGODB_DATABASES = {
+						'default': {'name': 'quickstart'}
+		}
+
+> The `'default'` dictionary can take the options as specified by mongoengine [connect](http://docs.mongoengine.org/guide/connecting.html)
+
+In `tutorial/urls.py`
+
+Add `include` to the imports
+
+	from django.conf.urls import url, include
+
+Replace
+
+		from django.contrib import admin
+
+With
+
+		from django_mongoengine import mongo_admin
+
+Replace
+
+    url(r'^admin/', include(mongo_admin.site.urls)),
+
+With
+
+    #url(r'^admin/', admin.site.urls),
+
+Check to see the new option
+
+		python manage.py
+
+In the output there should be an entry
+		[mongo_admin]
+				createmongodbsuperuser
+
+Create an initial user named `admin` with a password of `password123`. We'll authenticate as that user later in our example.
+
+    python manage.py createmongodbsuperuser
+		python manage.py runserver
+
+Visit localhost:8000 and the welcome page should come up. Visit localhost:8000/admin and log in to confirm authentication works.
+> At the time of writing the admin page does not allow editing.
+
+Now we have a database and initial user created and ready to go, open up the app's directory and we'll get coding...
 
 ## Serializers
 
