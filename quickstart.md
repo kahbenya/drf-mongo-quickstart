@@ -47,6 +47,8 @@ Now configure the project to use MongoEngine. In `settings.py` add
 			'django_mongoengine.mongo_auth.backends.MongoEngineBackend',
 		)
 
+		SESSION_ENGINE = 'django_mongoengine.sessions'
+
 Edit the standard database configuration and add the MongoDB config
 
 		DATABASES = {
@@ -54,7 +56,7 @@ Edit the standard database configuration and add the MongoDB config
 		}
 
 		MONGODB_DATABASES = {
-						'default': {'name': 'quickstart'}
+				'default': {'name': 'quickstart'}
 		}
 
 > The `'default'` dictionary can take the options as specified by mongoengine [connect](http://docs.mongoengine.org/guide/connecting.html)
@@ -75,17 +77,18 @@ With
 
 Replace
 
-    url(r'^admin/', include(mongo_admin.site.urls)),
+    url(r'^admin/', admin.site.urls),
 
 With
 
-    #url(r'^admin/', admin.site.urls),
+    url(r'^admin/', include(mongo_admin.site.urls)),
 
 Check to see the new option
 
 		python manage.py
 
 In the output there should be an entry
+
 		[mongo_admin]
 				createmongodbsuperuser
 
@@ -94,7 +97,7 @@ Create an initial user named `admin` with a password of `password123`. We'll aut
     python manage.py createmongodbsuperuser
 		python manage.py runserver
 
-Visit localhost:8000 and the welcome page should come up. Visit localhost:8000/admin and log in to confirm authentication works.
+Visit `localhost:8000` and the welcome page should come up. Visit `localhost:8000/admin` and log in to confirm authentication works.
 > At the time of writing the admin page does not allow editing.
 
 ### Django REST Framework Mongo
@@ -103,6 +106,7 @@ Visit localhost:8000 and the welcome page should come up. Visit localhost:8000/a
 		pip install django-rest-framework-mongoengine
 
 Add to `tutorial/settings.py`
+
 		INSTALLED_APPS = (
 			...
 			'rest_framework',
