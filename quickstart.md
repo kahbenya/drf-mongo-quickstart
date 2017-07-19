@@ -48,6 +48,7 @@ Now configure the project to use MongoEngine. In `settings.py` add
 		)
 
 Edit the standard database configuration and add the MongoDB config
+
 		DATABASES = {
 				'default': { 'ENGINE': 'django.db.backends.dummy'}
 		}
